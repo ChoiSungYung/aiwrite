@@ -38,6 +38,7 @@ export default function Navbar() {
         {session ? (
           <>
             <Link href="/profile" className="hover:text-indigo-500 hover:underline">내 프로필</Link>
+            <Link href="/admin" className="hover:text-indigo-500 hover:underline">관리자</Link>
             <button onClick={handleLogout} className="hover:text-indigo-500 hover:underline">
               로그아웃
             </button>
