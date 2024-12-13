@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 const MODEL_VERSIONS = ['gpt-o1', 'gpt-4o'];
 const ITEMS_PER_PAGE = 10;
 
-const WorkManager = () => {
+const AdminBookManager = () => {
   const [workData, setWorkData] = useState({
     title: '',
     genre: '',
@@ -467,4 +467,4 @@ const WorkManager = () => {
   );
 };
 
-export default WorkManager;
+export default AdminBookManager;
