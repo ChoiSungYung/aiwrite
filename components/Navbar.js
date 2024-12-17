@@ -6,6 +6,7 @@ import { useRouter } from 'next/router'
 export default function Navbar() {
   const router = useRouter()
   const [session, setSession] = useState(null)
+  const [hasLibrary, setHasLibrary] = useState(false)
 
   useEffect(() => {
     // 현재 세션 상태 가져오기
@@ -23,6 +24,27 @@ export default function Navbar() {
     }
   }, [])
 
+  useEffect(() => {
+    // 세션이 있을 때 해당 사용자가 소유한 서재가 있는지 확인
+    const fetchUserLibrary = async () => {
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('user_libraries')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .single()
+
+        if (data) {
+          setHasLibrary(true)
+        } else {
+          setHasLibrary(false)
+        }
+      }
+    }
+
+    fetchUserLibrary()
+  }, [session])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
@@ -37,7 +59,11 @@ export default function Navbar() {
         <Link href="/works" className="hover:text-indigo-500 hover:underline">작품 전체보기</Link>
         {session ? (
           <>
-            <Link href="/profile" className="hover:text-indigo-500 hover:underline">내 프로필</Link>
+            {hasLibrary ? (
+              <Link href={`/userlib/${session.user.id}`} className="hover:text-indigo-500 hover:underline">내 서재</Link>
+            ) : (
+              <Link href="/userlib/create" className="hover:text-indigo-500 hover:underline">서재 만들기</Link>
+            )}
             <Link href="/admin" className="hover:text-indigo-500 hover:underline">관리자</Link>
             <button onClick={handleLogout} className="hover:text-indigo-500 hover:underline">
               로그아웃

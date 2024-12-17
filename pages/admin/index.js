@@ -13,6 +13,13 @@ export default function AdminDashboard() {
             <p className="text-gray-600">도서 정보를 등록하고 관리합니다.</p>
           </div>
         </Link>
+
+        <Link href="/admin/database">
+          <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
+            <h2 className="text-lg font-semibold mb-2">데이터베이스</h2>
+            <p className="text-gray-600">시스템의 데이터베이스 정보를 관리합니다.</p>
+          </div>
+        </Link>
       </div>
     </AdminLayout>
   );
