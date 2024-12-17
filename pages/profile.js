@@ -1,93 +1,217 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { supabase } from '../lib/supabase'
+import { useUser } from '@/lib/useUser'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Pencil, Library, Heart, BookOpen } from 'lucide-react'
 
 export default function ProfilePage() {
+  const { user } = useUser()
   const router = useRouter()
-  const [session, setSession] = useState(null)
-  const [fullName, setFullName] = useState('')
-  const [bio, setBio] = useState('')
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
+  const [profile, setProfile] = useState(null)
+  const [works, setWorks] = useState([])
+  const [interactions, setInteractions] = useState([])
+  const [libraries, setLibraries] = useState([])
 
   useEffect(() => {
-    // 현재 세션(로그인 상태) 확인
-    supabase.auth.getSession().then(({ data: { session }}) => {
-      if (!session) {
-        router.push('/login')
-      } else {
-        setSession(session)
-        fetchProfile(session.user.id)
-      }
-    })
-  }, [router])
+    if (user) {
+      loadProfile()
+      loadUserContent()
+    } else if (user === null) {
+      router.push('/login')
+    }
+  }, [user])
 
-  async function fetchProfile(userId) {
-    const { data, error } = await supabase
+  const loadProfile = async () => {
+    const { data } = await supabase
       .from('profiles')
-      .select('full_name, bio')
-      .eq('id', userId)
+      .select('*')
+      .eq('id', user.id)
       .single()
 
-    if (error) {
-      console.error('프로필 불러오기 실패:', error)
-    } else {
-      setFullName(data.full_name || '')
-      setBio(data.bio || '')
+    if (data) {
+      setProfile(data)
     }
     setLoading(false)
   }
 
-  async function updateProfile(e) {
-    e.preventDefault()
-    if (!session) return
+  const loadUserContent = async () => {
+    // 작품 목록 로드
+    const { data: worksData } = await supabase
+      .from('works')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName, bio: bio, updated_at: new Date() })
-      .eq('id', session.user.id)
+    if (worksData) {
+      setWorks(worksData)
+    }
 
-    if (error) {
-      console.error('프로필 업데이트 실패:', error.message)
-      setMessage('프로필 업데이트 실패')
-    } else {
-      setMessage('프로필이 업데이트되었습니다.')
+    // 좋아요한 작품 로드
+    const { data: likesData } = await supabase
+      .from('interactions')
+      .select(`
+        *,
+        work:works(*)
+      `)
+      .eq('user_id', user.id)
+      .eq('interaction_type', 'like')
+      .order('created_at', { ascending: false })
+
+    if (likesData) {
+      setInteractions(likesData)
+    }
+
+    // 서재 목록 로드
+    const { data: librariesData } = await supabase
+      .from('user_libraries')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (librariesData) {
+      setLibraries(librariesData)
     }
   }
 
   if (loading) {
-    return <div className="max-w-md mx-auto py-8">로딩중...</div>
+    return <div className="container mx-auto p-8">로딩중...</div>
   }
 
+  if (!profile) return null
+
   return (
-    <div className="max-w-md mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-4">내 프로필</h1>
-      {message && <p className="mb-4 text-green-600">{message}</p>}
-      <form onSubmit={updateProfile} className="space-y-4">
-        <div>
-          <label className="block mb-1">이름</label>
-          <input 
-            type="text" 
-            className="border border-gray-300 rounded w-full p-2"
-            value={fullName}
-            onChange={e => setFullName(e.target.value)}
-          />
+    <div className="container mx-auto px-4 py-8">
+      <Card className="mb-8">
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">{profile.full_name}</h1>
+              {profile.bio && (
+                <p className="text-gray-600">{profile.bio}</p>
+              )}
+            </div>
+            <Link href="/profile/edit">
+              <Button variant="outline" size="sm">
+                <Pencil className="w-4 h-4 mr-2" />
+                프로필 수정
+              </Button>
+            </Link>
+          </div>
+          <div className="flex gap-4 text-sm text-gray-600">
+            <div>작품 {works.length}개</div>
+            <div>좋아요한 작품 {interactions.length}개</div>
+            <div>서재 {libraries.length}개</div>
+          </div>
         </div>
-        <div>
-          <label className="block mb-1">소개</label>
-          <textarea 
-            className="border border-gray-300 rounded w-full p-2"
-            value={bio}
-            onChange={e => setBio(e.target.value)}
-          />
-        </div>
-        <button 
-          type="submit" 
-          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500 transition"
-        >
-          프로필 업데이트
-        </button>
-      </form>
+      </Card>
+
+      <Tabs defaultValue="works" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="works" className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            내 작품
+          </TabsTrigger>
+          <TabsTrigger value="likes" className="flex items-center gap-2">
+            <Heart className="w-4 h-4" />
+            좋아요한 작품
+          </TabsTrigger>
+          <TabsTrigger value="libraries" className="flex items-center gap-2">
+            <Library className="w-4 h-4" />
+            내 서재
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="works" className="space-y-4">
+          {works.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {works.map(work => (
+                <Card key={work.id} className="flex flex-col">
+                  <div className="p-4">
+                    <Link 
+                      href={`/works/${work.id}`}
+                      className="text-lg font-medium hover:text-indigo-600"
+                    >
+                      {work.title}
+                    </Link>
+                    <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                      <div>조회 {work.view_count}</div>
+                      <div>좋아요 {work.like_count}</div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              아직 작성한 작품이 없습니다.
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="likes" className="space-y-4">
+          {interactions.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {interactions.map(({ work }) => (
+                <Card key={work.id} className="flex flex-col">
+                  <div className="p-4">
+                    <Link 
+                      href={`/works/${work.id}`}
+                      className="text-lg font-medium hover:text-indigo-600"
+                    >
+                      {work.title}
+                    </Link>
+                    <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                      <div>조회 {work.view_count}</div>
+                      <div>좋아요 {work.like_count}</div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              아직 좋아요한 작품이 없습니다.
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="libraries" className="space-y-4">
+          {libraries.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {libraries.map(library => (
+                <Card key={library.id} className="flex flex-col">
+                  <div className="p-4">
+                    <Link 
+                      href={`/userlib/${library.id}`}
+                      className="text-lg font-medium hover:text-indigo-600"
+                    >
+                      {library.name}
+                    </Link>
+                    {library.description && (
+                      <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+                        {library.description}
+                      </p>
+                    )}
+                    <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                      <div>작품 {library.total_works}</div>
+                      <div>팔로워 {library.followers_count}</div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              아직 생성한 서재가 없습니다.
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
